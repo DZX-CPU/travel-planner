@@ -1,0 +1,5 @@
+# 根目录只保留两个项目，其余文件（论文、开题报告、参考资料等）不纳入版本库
+/*
+!/.gitignore
+!/travel-server/
+!/travel-web/

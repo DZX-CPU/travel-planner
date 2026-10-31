@@ -1,0 +1,74 @@
+/* ========== 设计令牌：白色清爽风格 ========== */
+:root {
+  --primary: #0ea5e9;        /* 天空蓝 */
+  --primary-hover: #0284c7;
+  --primary-light: #e0f2fe;
+  --accent: #f97316;         /* 活力橙，点缀用 */
+  --bg: #f8fafc;             /* 页面底：近白 */
+  --surface: #ffffff;        /* 卡片 */
+  --text: #0f172a;
+  --text-2: #475569;
+  --text-3: #94a3b8;
+  --border: #e2e8f0;
+  --radius: 12px;
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --shadow-md: 0 4px 16px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 8px 30px rgba(15, 23, 42, 0.12);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  background-color: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+/* Element Plus 主色对齐 */
+:root {
+  --el-color-primary: #0ea5e9;
+  --el-color-primary-light-3: #4fc3f7;
+  --el-color-primary-light-5: #81d4fa;
+  --el-color-primary-light-7: #b3e5fc;
+  --el-color-primary-light-8: #e0f2fe;
+  --el-color-primary-light-9: #f0f9ff;
+  --el-color-primary-dark-2: #0284c7;
+  --el-border-radius-base: 8px;
+}
+
+/* 统一卡片质感 */
+.el-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm) !important;
+}
+.el-card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+/* 按钮圆角与过渡 */
+.el-button {
+  border-radius: 8px;
+  transition: all 0.2s ease-out;
+}
+
+/* 表格更轻 */
+.el-table {
+  --el-table-border-color: var(--border);
+  border-radius: var(--radius);
+}
+
+/* 输入框 */
+.el-input__wrapper {
+  border-radius: 8px;
+}

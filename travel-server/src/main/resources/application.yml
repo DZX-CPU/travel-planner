@@ -1,0 +1,59 @@
+server:
+  port: 8080
+
+spring:
+  profiles:
+    active: local
+  application:
+    name: travel-server
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/travel_db?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: root
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      database: 0
+
+  ai:
+    openai:
+      # DeepSeek 的 OpenAI 兼容接口
+      base-url: https://api.deepseek.com
+      api-key: ${DEEPSEEK_API_KEY:your-deepseek-api-key}
+      chat:
+        options:
+          model: deepseek-flash
+          temperature: 0.7
+
+# swagger默认关，local profile里再开。部署上线时把active换掉就不会暴露接口文档
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      id-type: auto
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+# 高德开放平台（Web 服务 Key 放在 application-local.yml，不入仓库）
+gaode:
+  poi-search-url: https://restapi.amap.com/v3/place/text
+
+# JWT 配置
+jwt:
+  secret: travel-server-jwt-secret-key-please-change-in-production-0123456789
+  expire-hours: 72
+
+logging:
+  level:
+    com.bs.travel: debug
