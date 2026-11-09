@@ -3,9 +3,12 @@
     <div class="toolbar">
       <h2>旅行游记</h2>
       <div style="display: flex; gap: 12px">
-        <el-select v-model="city" placeholder="按城市筛选" clearable style="width: 180px" @change="load">
+        <el-select v-model="city" placeholder="按城市筛选" clearable style="width: 150px" @change="search">
           <el-option v-for="c in cities" :key="c" :label="c" :value="c" />
         </el-select>
+        <el-input v-model="keyword" placeholder="搜索标题或正文" clearable style="width: 220px"
+                  @keyup.enter="search" @clear="search" />
+        <el-button @click="search">搜索</el-button>
         <el-button type="primary" @click="$router.push('/my-notes')">写游记</el-button>
       </div>
     </div>
@@ -43,13 +46,25 @@ const list = ref([])
 const total = ref(0)
 const page = ref(1)
 const city = ref('')
+const keyword = ref('')
 const loading = ref(false)
+
+// 换城市或改关键词都从第一页开始查
+function search() {
+  page.value = 1
+  load()
+}
 
 async function load() {
   loading.value = true
   try {
     const data = await request.get('/note/list', {
-      params: { page: page.value, size: 10, city: city.value || undefined }
+      params: {
+        page: page.value,
+        size: 10,
+        city: city.value || undefined,
+        keyword: keyword.value.trim() || undefined
+      }
     })
     list.value = data.records
     total.value = Number(data.total)

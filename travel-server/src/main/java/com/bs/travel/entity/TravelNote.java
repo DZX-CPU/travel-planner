@@ -24,6 +24,10 @@ public class TravelNote {
 
     private Integer viewCount;
 
+    // 管理端列表展示作者用，不落库
+    @TableField(exist = false)
+    private String username;
+
     @TableLogic
     private Integer deleted;
 

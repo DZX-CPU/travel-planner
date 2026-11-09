@@ -67,7 +67,8 @@ async function onLogin() {
   try {
     await userStore.login(form.username, form.password)
     ElMessage.success('登录成功')
-    router.push('/home')
+    // 管理员进对应的后台界面，普通用户回首页
+    router.push(userStore.userInfo?.role === 1 ? '/admin' : '/home')
   } finally {
     loading.value = false
   }

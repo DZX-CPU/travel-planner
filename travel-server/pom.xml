@@ -95,11 +95,12 @@
             <artifactId>jackson-databind</artifactId>
         </dependency>
 
-        <!-- 接口文档 -->
+        <!-- 接口文档：knife4j（自带 springdoc 2.3.0，版本不能单独升到 2.6，
+             2.6 的 SpringDocConfigProperties.getGroupConfigs() 返回 Set，和 knife4j 4.5.0 不兼容） -->
         <dependency>
-            <groupId>org.springdoc</groupId>
-            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-            <version>2.6.0</version>
+            <groupId>com.github.xiaoymin</groupId>
+            <artifactId>knife4j-openapi3-jakarta-spring-boot-starter</artifactId>
+            <version>4.5.0</version>
         </dependency>
 
         <!-- 工具 -->

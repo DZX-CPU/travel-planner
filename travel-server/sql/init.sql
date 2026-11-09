@@ -8,7 +8,7 @@ USE travel_db;
 CREATE TABLE IF NOT EXISTS `user` (
     `id`          BIGINT       NOT NULL AUTO_INCREMENT COMMENT '用户ID',
     `username`    VARCHAR(50)  NOT NULL COMMENT '用户名',
-    `password`    VARCHAR(100) NOT NULL COMMENT '密码(BCrypt)',
+    `password`    VARCHAR(100) NOT NULL COMMENT '密码(SHA-256加盐)',
     `nickname`    VARCHAR(50)  DEFAULT NULL COMMENT '昵称',
     `avatar`      VARCHAR(255) DEFAULT NULL COMMENT '头像URL',
     `email`       VARCHAR(100) DEFAULT NULL COMMENT '邮箱',

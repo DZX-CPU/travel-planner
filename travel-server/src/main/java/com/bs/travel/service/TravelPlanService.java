@@ -10,10 +10,12 @@ import com.bs.travel.entity.PlanDay;
 import com.bs.travel.entity.PlanItem;
 import com.bs.travel.entity.ScenicSpot;
 import com.bs.travel.entity.TravelPlan;
+import com.bs.travel.entity.User;
 import com.bs.travel.gaode.GaodeService;
 import com.bs.travel.mapper.PlanDayMapper;
 import com.bs.travel.mapper.PlanItemMapper;
 import com.bs.travel.mapper.TravelPlanMapper;
+import com.bs.travel.mapper.UserMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -36,12 +38,51 @@ public class TravelPlanService {
     private final TravelPlanMapper planMapper;
     private final PlanDayMapper dayMapper;
     private final PlanItemMapper itemMapper;
+    private final UserMapper userMapper;
 
     /**
      * AI生成行程：查景点 -> 喂给LLM -> 解析 -> 落库
      */
     @Transactional
     public TravelPlan generateAndSave(Long userId, GeneratePlanDTO dto) {
+        AiPlanResult aiResult = prepare(dto);
+        return savePlanFromAi(userId, dto, aiResult);
+    }
+
+    /**
+     * 重新生成：用原行程的条件再跑一次模型，覆盖原行程的天和项，行程 id 不变
+     */
+    @Transactional
+    public TravelPlan regenerate(Long userId, Long planId) {
+        TravelPlan plan = planMapper.selectById(planId);
+        if (plan == null || !plan.getUserId().equals(userId)) {
+            throw new BizException("行程不存在");
+        }
+
+        GeneratePlanDTO dto = toGenerateDto(plan);
+        AiPlanResult aiResult = prepare(dto);
+
+        plan.setTitle(aiResult.getTitle());
+        plan.setAiSummary(aiResult.getSummary());
+        plan.setCity(dto.getCity());
+        plan.setDays(dto.getDays());
+        plan.setPeople(dto.getPeople());
+        plan.setArrivalTime(dto.getArrivalTime());
+        plan.setBudget(parseBudget(dto.getBudget()));
+        plan.setPreference(dto.getPreference());
+        plan.setStatus(1);
+        planMapper.updateById(plan);
+
+        clearPlanDays(planId);
+        insertDaysAndItems(planId, aiResult);
+        return plan;
+    }
+
+    /**
+     * 校验参数、拉真实景点、调模型、收拾模型结果。
+     * regenerate 复用这一段，保证生成规则只有一份。
+     */
+    private AiPlanResult prepare(GeneratePlanDTO dto) {
         if (dto.getCity() == null || dto.getCity().isBlank()) {
             throw new BizException("请填写目的地城市");
         }
@@ -77,9 +118,7 @@ public class TravelPlanService {
         // 3. 收拾模型给的结果：坐标只信景点库，第一天必须先去放行李
         AiPlanNormalizer.fixCoordinates(aiResult, spots);
         AiPlanNormalizer.ensureFirstDayStay(aiResult, dto.getArrivalTime());
-
-        // 4. 落库
-        return savePlanFromAi(userId, dto, aiResult);
+        return aiResult;
     }
 
     @Transactional
@@ -97,12 +136,23 @@ public class TravelPlanService {
         plan.setAiSummary(aiResult.getSummary());
         planMapper.insert(plan);
 
+        insertDaysAndItems(plan.getId(), aiResult);
+        return plan;
+    }
+
+    // 生成和重新生成都用这一段，天/项的写库逻辑只保留一份
+    private void insertDaysAndItems(Long planId, AiPlanResult aiResult) {
         for (AiPlanResult.DayPlan dayPlan : aiResult.getDays()) {
             PlanDay day = new PlanDay();
-            day.setPlanId(plan.getId());
+            day.setPlanId(planId);
             day.setDayNo(dayPlan.getDayNo() == null ? 0 : dayPlan.getDayNo());
             day.setTheme(dayPlan.getTheme());
             dayMapper.insert(day);
+
+            // 模型偶尔会漏 items，跳过这一天而不是整个请求报 500
+            if (dayPlan.getItems() == null) {
+                continue;
+            }
 
             int sortNo = 1;
             for (AiPlanResult.Item item : dayPlan.getItems()) {
@@ -122,18 +172,37 @@ public class TravelPlanService {
                 itemMapper.insert(pi);
             }
         }
-        return plan;
+    }
+
+    // 重新生成/删除前先清掉旧的天和项，避免留下孤儿数据
+    private void clearPlanDays(Long planId) {
+        List<PlanDay> days = dayMapper.selectList(new LambdaQueryWrapper<PlanDay>()
+                .eq(PlanDay::getPlanId, planId));
+        if (days.isEmpty()) {
+            return;
+        }
+        List<Long> dayIds = days.stream().map(PlanDay::getId).toList();
+        itemMapper.delete(new LambdaQueryWrapper<PlanItem>().in(PlanItem::getDayId, dayIds));
+        dayMapper.delete(new LambdaQueryWrapper<PlanDay>().eq(PlanDay::getPlanId, planId));
     }
 
     /**
      * 行程详情（带天和条目）
      */
-    public TravelPlan getPlanDetail(Long planId) {
+    public TravelPlan getPlanDetail(Long userId, Long planId) {
         TravelPlan plan = planMapper.selectById(planId);
-        if (plan == null) {
+        if (plan == null || (!plan.getUserId().equals(userId) && !isAdmin(userId))) {
             throw new BizException("行程不存在");
         }
         return plan;
+    }
+
+    private boolean isAdmin(Long userId) {
+        if (userId == null) {
+            return false;
+        }
+        User user = userMapper.selectById(userId);
+        return user != null && user.getRole() != null && user.getRole() == 1;
     }
 
     public List<PlanDay> getPlanDays(Long planId) {
@@ -157,12 +226,44 @@ public class TravelPlanService {
                 .orderByDesc(TravelPlan::getCreateTime));
     }
 
+    @Transactional
     public void deletePlan(Long userId, Long planId) {
         TravelPlan plan = planMapper.selectById(planId);
         if (plan == null || !plan.getUserId().equals(userId)) {
             throw new BizException("行程不存在");
         }
+        removePlan(planId);
+    }
+
+    /**
+     * 管理员删除任意行程，权限由 AdminInterceptor 保证
+     */
+    @Transactional
+    public void deletePlanForAdmin(Long planId) {
+        if (planMapper.selectById(planId) == null) {
+            throw new BizException("行程不存在");
+        }
+        removePlan(planId);
+    }
+
+    private void removePlan(Long planId) {
+        clearPlanDays(planId);
         planMapper.deleteById(planId);
+    }
+
+    /**
+     * 重新生成时把原行程的条件还原成生成参数
+     */
+    static GeneratePlanDTO toGenerateDto(TravelPlan plan) {
+        GeneratePlanDTO dto = new GeneratePlanDTO();
+        dto.setCity(plan.getCity());
+        dto.setDays(plan.getDays());
+        dto.setPeople(plan.getPeople());
+        dto.setArrivalTime(plan.getArrivalTime());
+        dto.setBudget(plan.getBudget() == null ? null
+                : plan.getBudget().stripTrailingZeros().toPlainString());
+        dto.setPreference(plan.getPreference());
+        return dto;
     }
 
     private static BigDecimal parseBudget(String budget) {

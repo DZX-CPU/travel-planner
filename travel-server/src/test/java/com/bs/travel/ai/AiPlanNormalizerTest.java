@@ -89,10 +89,57 @@ class AiPlanNormalizerTest {
     }
 
     @Test
-    void fuzzyMatchIsNotUsed() {
-        // 名字只是包含关系不算命中，否则"西湖音乐喷泉"会被错配到"西湖"并继承假坐标
+    void longerAiNameNotMatchedToShorterLibraryName() {
+        // 模型写的名字比库里更具体时不算命中，否则"西湖音乐喷泉"会被错配到"西湖"并继承假坐标
         AiPlanResult result = resultOf(item("西湖音乐喷泉", 104.0, 30.0));
         AiPlanNormalizer.fixCoordinates(result, List.of(spot("西湖", "120.150000", "30.250000")));
+
+        assertNull(result.getDays().get(0).getItems().get(0).getLongitude());
+    }
+
+    @Test
+    void bracketSuffixInAiNameStillMatches() {
+        // 模型爱把括号里的补充说明带上，去掉后缀应该能对上库里的干净名字
+        AiPlanResult result = resultOf(item("灵隐寺（飞来峰景区）", null, null));
+        AiPlanNormalizer.fixCoordinates(result, List.of(spot("灵隐寺", "120.101000", "30.241000")));
+
+        assertEquals(120.101, result.getDays().get(0).getItems().get(0).getLongitude().doubleValue());
+    }
+
+    @Test
+    void dashSuffixInLibraryNameStillMatches() {
+        // 高德的名字常带"-入口"这种后缀，模型写的是主干名
+        AiPlanResult result = resultOf(item("西栅景区", null, null));
+        AiPlanNormalizer.fixCoordinates(result, List.of(spot("西栅景区-入口", "120.487000", "30.746000")));
+
+        assertEquals(120.487, result.getDays().get(0).getItems().get(0).getLongitude().doubleValue());
+    }
+
+    @Test
+    void shorterNameMatchedToLongerLibraryName() {
+        // 库里是完整官方名，模型写了个简称，唯一命中就认
+        AiPlanResult result = resultOf(item("河坊街", null, null));
+        AiPlanNormalizer.fixCoordinates(result, List.of(spot("河坊街步行街", "120.169000", "30.240000")));
+
+        assertEquals(120.169, result.getDays().get(0).getItems().get(0).getLongitude().doubleValue());
+    }
+
+    @Test
+    void ambiguousLongerNamesGiveUp() {
+        // 两个景点都能包含"西湖"，分不清是哪个，宁可留空
+        AiPlanResult result = resultOf(item("西湖", null, null));
+        AiPlanNormalizer.fixCoordinates(result, List.of(
+                spot("西湖风景名胜区", "120.150000", "30.250000"),
+                spot("西湖音乐喷泉", "120.160000", "30.260000")));
+
+        assertNull(result.getDays().get(0).getItems().get(0).getLongitude());
+    }
+
+    @Test
+    void fuzzyMatchOnlyForSpotActivity() {
+        // 用餐条目名字里带地标，不能因为名字像就继承景点坐标
+        AiPlanResult result = resultOf(activityItem("河坊街", "用餐"));
+        AiPlanNormalizer.fixCoordinates(result, List.of(spot("河坊街步行街", "120.169000", "30.240000")));
 
         assertNull(result.getDays().get(0).getItems().get(0).getLongitude());
     }

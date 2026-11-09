@@ -1,5 +1,5 @@
 <template>
-  <div class="plan-detail" v-loading="loading">
+  <div class="plan-detail" v-loading="loading || regenerating">
     <template v-if="plan">
       <div class="head">
         <div>
@@ -13,6 +13,18 @@
             <span v-if="plan.preference"> · 偏好：{{ plan.preference }}</span>
           </p>
           <p class="summary" v-if="plan.aiSummary">{{ plan.aiSummary }}</p>
+        </div>
+        <div class="actions">
+          <el-popconfirm title="重新生成会覆盖当前行程内容，确定吗？" width="240" @confirm="regenerate">
+            <template #reference>
+              <el-button type="primary" plain :loading="regenerating">重新生成</el-button>
+            </template>
+          </el-popconfirm>
+          <el-popconfirm title="确定删除这个行程吗？" @confirm="remove">
+            <template #reference>
+              <el-button type="danger" plain :loading="deleting">删除</el-button>
+            </template>
+          </el-popconfirm>
         </div>
       </div>
 
@@ -66,20 +78,25 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, nextTick } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, nextTick, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import request from '../utils/request'
 import { loadAmap } from '../utils/amap'
 
 const route = useRoute()
+const router = useRouter()
 const planId = route.params.id
 
 const plan = ref(null)
 const days = ref([])
 const itemsByDay = ref({})
 const loading = ref(true)
+const regenerating = ref(false)
+const deleting = ref(false)
 const mapRef = ref(null)
 const hoverInfo = ref(null)
+let mapInstance = null
 
 // 老数据改表前没人数，按 1 人算，正好等于它原来的"元/人"
 const perCapita = computed(() => {
@@ -99,18 +116,51 @@ function tagType(activity) {
   return ''
 }
 
-onMounted(async () => {
-  const data = await request.get('/plan/' + planId)
-  plan.value = data.plan
-  days.value = data.days
-  itemsByDay.value = data.itemsByDay
-  loading.value = false
+onMounted(load)
 
+async function load() {
+  loading.value = true
+  try {
+    const data = await request.get('/plan/' + planId)
+    plan.value = data.plan
+    days.value = data.days
+    itemsByDay.value = data.itemsByDay
+    hoverInfo.value = null
+  } finally {
+    loading.value = false
+  }
   await nextTick()
   renderMap()
-})
+}
+
+async function regenerate() {
+  regenerating.value = true
+  try {
+    await request.post('/plan/' + planId + '/regenerate')
+    ElMessage.success('已重新生成')
+    await load()
+  } finally {
+    regenerating.value = false
+  }
+}
+
+async function remove() {
+  deleting.value = true
+  try {
+    await request.delete('/plan/' + planId)
+    ElMessage.success('已删除')
+    router.push('/my-plans')
+  } finally {
+    deleting.value = false
+  }
+}
 
 async function renderMap() {
+  // 重新生成后旧地图要销毁，否则上一次的标记和路线会叠上来
+  if (mapInstance) {
+    mapInstance.destroy()
+    mapInstance = null
+  }
   // 收集所有有坐标的条目
   const points = []
   for (const day of days.value) {
@@ -134,6 +184,7 @@ async function renderMap() {
     zoom: 12,
     center: [points[0].lng, points[0].lat]
   })
+  mapInstance = map
 
   const colors = ['#409eff', '#67c23a', '#e6a23c', '#f56c6c', '#9c27b0', '#00bcd4', '#7cb342']
 
@@ -207,6 +258,17 @@ async function renderMap() {
   max-width: 1200px;
   margin: 28px auto;
   padding: 0 24px;
+}
+.head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+}
+.actions {
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
 }
 .head h2 {
   margin-bottom: 10px;

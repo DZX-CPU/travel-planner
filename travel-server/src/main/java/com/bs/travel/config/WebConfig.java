@@ -11,6 +11,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 public class WebConfig implements WebMvcConfigurer {
 
     private final JwtInterceptor jwtInterceptor;
+    private final AdminInterceptor adminInterceptor;
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
@@ -20,9 +21,18 @@ public class WebConfig implements WebMvcConfigurer {
                         "/api/user/login",
                         "/api/user/register",
                         "/doc.html",
+                        "/webjars/**",
                         "/swagger-ui/**",
-                        "/v3/api-docs/**"
-                );
+                        "/swagger-resources/**",
+                        "/v3/api-docs/**",
+                        "/favicon.ico",
+                        "/error"
+                )
+                .order(0);
+        // 管理端接口在登录校验之后再查一次角色
+        registry.addInterceptor(adminInterceptor)
+                .addPathPatterns("/api/admin/**")
+                .order(1);
     }
 
     // 前端开发走的是Vite代理，其实到这里都是同源；这里收紧到5173以防直连调试场景

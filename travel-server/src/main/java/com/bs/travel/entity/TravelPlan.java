@@ -37,6 +37,10 @@ public class TravelPlan {
 
     private String aiSummary;
 
+    // 管理端列表展示作者用，不落库
+    @TableField(exist = false)
+    private String username;
+
     @TableLogic
     private Integer deleted;
 

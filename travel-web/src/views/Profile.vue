@@ -6,6 +6,12 @@
         <el-form-item label="用户名">
           <el-input :model-value="form.username" disabled />
         </el-form-item>
+        <el-form-item label="头像">
+          <div class="avatar-row">
+            <el-avatar :size="56" :src="form.avatar">{{ (form.nickname || 'U')[0] }}</el-avatar>
+            <el-input v-model="form.avatar" placeholder="头像图片 URL，留空则显示昵称首字" clearable />
+          </div>
+        </el-form-item>
         <el-form-item label="昵称">
           <el-input v-model="form.nickname" />
         </el-form-item>
@@ -31,7 +37,7 @@ import { useUserStore } from '../stores/user'
 
 const userStore = useUserStore()
 const loading = ref(true)
-const form = reactive({ username: '', nickname: '', email: '', phone: '' })
+const form = reactive({ username: '', avatar: '', nickname: '', email: '', phone: '' })
 
 onMounted(async () => {
   const info = await request.get('/user/info')
@@ -51,5 +57,11 @@ async function save() {
   max-width: 700px;
   margin: 28px auto;
   padding: 0 24px;
+}
+.avatar-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
 }
 </style>

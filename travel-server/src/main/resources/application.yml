@@ -34,6 +34,10 @@ springdoc:
   swagger-ui:
     enabled: false
 
+# knife4j 增强默认关，local profile 里打开
+knife4j:
+  enable: false
+
 mybatis-plus:
   configuration:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl

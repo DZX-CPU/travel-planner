@@ -25,7 +25,12 @@ const routes = [
       { path: 'note/:id', name: 'NoteDetail', component: () => import('../views/NoteDetail.vue') },
       { path: 'my-notes', name: 'MyNotes', component: () => import('../views/MyNotes.vue') },
       { path: 'profile', name: 'Profile', component: () => import('../views/Profile.vue') },
-      { path: 'admin', name: 'Admin', component: () => import('../views/Admin.vue') }
+      {
+        path: 'admin',
+        name: 'Admin',
+        meta: { requiresAdmin: true },
+        component: () => import('../views/Admin.vue')
+      }
     ]
   }
 ]
@@ -35,11 +40,22 @@ const router = createRouter({
   routes
 })
 
-// 没登录就跳登录页
-router.beforeEach((to) => {
+// 没登录就跳登录页；管理页再确认一次角色
+router.beforeEach(async (to) => {
   const token = localStorage.getItem('token')
   if (!token && to.name !== 'Login' && to.name !== 'Register') {
     return { name: 'Login' }
+  }
+  if (to.meta.requiresAdmin) {
+    // 动态引入，避免 router -> store -> request -> router 的循环依赖
+    const { useUserStore } = await import('../stores/user')
+    const userStore = useUserStore()
+    if (!userStore.userInfo) {
+      await userStore.fetchInfo()
+    }
+    if (userStore.userInfo?.role !== 1) {
+      return { name: 'Home' }
+    }
   }
 })
 

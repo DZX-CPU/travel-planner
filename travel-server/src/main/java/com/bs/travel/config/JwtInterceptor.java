@@ -2,6 +2,7 @@ package com.bs.travel.config;
 
 import com.bs.travel.common.JwtUtil;
 import com.bs.travel.common.UserContext;
+import com.bs.travel.mapper.UserMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +17,7 @@ import com.bs.travel.common.BizException;
 public class JwtInterceptor implements HandlerInterceptor {
 
     private final JwtUtil jwtUtil;
+    private final UserMapper userMapper;
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
@@ -32,6 +34,11 @@ public class JwtInterceptor implements HandlerInterceptor {
         Long userId = token == null ? null : jwtUtil.parseToken(token);
         if (userId == null) {
             throw new BizException(401, "请先登录");
+        }
+
+        // 管理员删号后旧token要立即失效，所以每次都确认用户在不在
+        if (userMapper.selectById(userId) == null) {
+            throw new BizException(401, "登录已失效，请重新登录");
         }
 
         UserContext.set(userId);
